@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<body style="font-family:monospace; font-size:16px; padding:20px;">
+<script>
+  document.write('window.supabase type: ' + typeof window.supabase + '<br>');
+  if (window.supabase) {
+    document.write('createClient type: ' + typeof window.supabase.createClient + '<br>');
+    try {
+      const c = window.supabase.createClient(
+        "https://hxonnzbdkmbitwtpbyic.supabase.co",
+        "sb_publishable_iMpl2OAbQ2PwmNGXdLKNeA_GPlHuxYs"
+      );
+      document.write('client created OK<br>');
+      document.write('client.auth type: ' + typeof c.auth + '<br>');
+      document.write('client.auth.signUp type: ' + typeof (c.auth && c.auth.signUp) + '<br>');
+    } catch (e) {
+      document.write('ERROR creating client: ' + e.message + '<br>');
+    }
+  } else {
+    document.write('Supabase library did NOT load from the CDN.<br>');
+  }
+</script>
+</body>
+</html>
