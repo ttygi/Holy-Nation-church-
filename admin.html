@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Prophetic Bright</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0B0714; --bg-raised:#15101F; --card-border:rgba(255,255,255,0.10);
+    --text-hi:#F4F0FA; --text-mid:#B9AFC9; --text-low:#8A7F9C;
+    --gold:#E8B04B; --ember-1:#F2A93B; --ember-2:#E0602E; --danger:#E5484D;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text-hi); font-family:'Inter',sans-serif;}
+  h1,h2{font-family:'Fraunces',serif; font-weight:600;}
+  .wrap{max-width:900px; margin:0 auto; padding:24px 20px 60px;}
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;}
+  .tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:24px; border-bottom:1px solid var(--card-border); padding-bottom:12px;}
+  .tab-btn{background:none; border:1px solid var(--card-border); color:var(--text-mid); padding:9px 16px; border-radius:999px; cursor:pointer; font-size:0.88rem; font-family:inherit;}
+  .tab-btn.active{background:linear-gradient(135deg, var(--ember-1), var(--ember-2)); color:#1A0F00; border-color:transparent; font-weight:600;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .card{background:var(--bg-raised); border:1px solid var(--card-border); border-radius:16px; padding:18px 20px; margin-bottom:14px;}
+  table{width:100%; border-collapse:collapse; font-size:0.88rem;}
+  th,td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--card-border); vertical-align:middle;}
+  th{color:var(--text-low); font-weight:600; font-size:0.78rem; text-transform:uppercase;}
+  select, input, textarea{background:var(--bg); border:1px solid var(--card-border); color:var(--text-hi); border-radius:8px; padding:7px 10px; font-family:inherit; font-size:0.85rem;}
+  .btn{border:none; border-radius:999px; padding:8px 14px; font-size:0.82rem; font-weight:600; cursor:pointer; font-family:inherit;}
+  .btn-primary{background:linear-gradient(135deg, var(--ember-1), var(--ember-2)); color:#1A0F00;}
+  .btn-danger{background:rgba(229,72,77,0.15); color:var(--danger); border:1px solid rgba(229,72,77,0.4);}
+  .btn-ghost{background:transparent; border:1px solid var(--card-border); color:var(--text-mid);}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--card-border);}
+  .row:last-child{border-bottom:none;}
+  .row .label{font-weight:600; font-size:0.92rem;}
+  .row .desc{color:var(--text-low); font-size:0.8rem; margin-top:2px;}
+  .toggle{position:relative; width:44px; height:24px; background:var(--card-border); border-radius:999px; cursor:pointer; border:none;}
+  .toggle.on{background:linear-gradient(135deg, var(--ember-1), var(--ember-2));}
+  .toggle::after{content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:transform 0.15s;}
+  .toggle.on::after{transform:translateX(20px);}
+  .badge{font-size:0.72rem; padding:2px 9px; border-radius:999px; border:1px solid var(--card-border); color:var(--text-mid);}
+  .badge.admin{color:var(--gold); border-color:var(--gold);}
+  .badge.moderator{color:#6FB8E8; border-color:#6FB8E8;}
+  .locked{max-width:380px; margin:80px auto; text-align:center;}
+  form.stack{display:flex; flex-direction:column; gap:12px;}
+</style>
+</head>
+<body>
+
+<div id="locked" class="wrap locked">
+  <h1>Admin Sign In</h1>
+  <form id="login-form" class="stack">
+    <input id="login-email" type="email" placeholder="Email" required />
+    <input id="login-password" type="password" placeholder="Password" required />
+    <button class="btn btn-primary" type="submit">Sign In</button>
+  </form>
+  <p id="login-error" style="color:var(--danger); font-size:0.85rem;"></p>
+</div>
+
+<div id="dashboard" class="wrap" style="display:none;">
+  <header>
+    <h1>Admin Dashboard</h1>
+    <div><span id="admin-name" style="color:var(--text-mid); margin-right:14px;"></span><button class="btn btn-ghost" id="logout-btn">Sign Out</button></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="members">Members</button>
+    <button class="tab-btn" data-tab="posts">Posts</button>
+    <button class="tab-btn" data-tab="comments">Comments</button>
+    <button class="tab-btn" data-tab="devotionals">Devotionals</button>
+    <button class="tab-btn" data-tab="live">Live Control</button>
+    <button class="tab-btn" data-tab="settings">Site Settings</button>
+  </div>
+
+  <div class="panel active" id="panel-overview">
+    <div class="card"><div id="overview-stats">Loading…</div></div>
+  </div>
+
+  <div class="panel" id="panel-members">
+    <div class="card"><table id="members-table"><thead>
+      <tr><th>Member</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+    </thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="panel" id="panel-posts">
+    <div class="card"><table id="posts-table"><thead>
+      <tr><th>Author</th><th>Content</th><th>Status</th><th>Actions</th></tr>
+    </thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="panel" id="panel-comments">
+    <div class="card"><table id="comments-table"><thead>
+      <tr><th>Author</th><th>Comment</th><th>Status</th><th>Actions</th></tr>
+    </thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="panel" id="panel-devotionals">
+    <div class="card">
+      <form id="devo-form" class="stack" style="margin-bottom:18px;">
+        <strong>Add / Update a day</strong>
+        <input id="devo-day" type="number" placeholder="Day number (1-365)" required />
+        <input id="devo-ref" placeholder="Reference (e.g. Genesis 1:1-3)" required />
+        <textarea id="devo-verse" placeholder="Verse text" required></textarea>
+        <textarea id="devo-declaration" placeholder="Declaration" required></textarea>
+        <button class="btn btn-primary" type="submit">Save Day</button>
+      </form>
+      <table id="devo-table"><thead><tr><th>Day</th><th>Reference</th><th>Actions</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-live">
+    <div class="card stack" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="row"><div><p class="label">Manual live override</p><p class="desc">Use this to mark the ministry live/offline by hand, in addition to any automatic detection.</p></div>
+        <button class="toggle" id="live-toggle"></button></div>
+      <input id="live-title" placeholder="Broadcast title" />
+      <input id="live-url" placeholder="Broadcast URL" />
+      <select id="live-platform"><option value="youtube">YouTube</option><option value="facebook">Facebook</option><option value="other">Other</option></select>
+      <button class="btn btn-primary" id="live-save" style="align-self:flex-start;">Save Live Status</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-settings">
+    <div class="card">
+      <div class="row"><div><p class="label">Allow member posts</p><p class="desc">Turn off to freeze the community feed.</p></div><button class="toggle" id="toggle-allow_posts"></button></div>
+      <div class="row"><div><p class="label">Allow comments</p><p class="desc">Turn off to disable commenting site-wide.</p></div><button class="toggle" id="toggle-allow_comments"></button></div>
+      <div class="row"><div><p class="label">Maintenance mode</p><p class="desc">Shows a maintenance banner to visitors.</p></div><button class="toggle" id="toggle-maintenance_mode"></button></div>
+      <div class="row"><div><p class="label">Announcement banner</p><p class="desc">Shows a message at the top of the site.</p></div><button class="toggle" id="toggle-announcement_enabled"></button></div>
+      <textarea id="announcement-text" placeholder="Announcement text" style="width:100%; margin-top:10px;"></textarea>
+      <button class="btn btn-primary" id="save-announcement" style="margin-top:10px;">Save Announcement Text</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+  }));
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await signIn(document.getElementById('login-email').value, document.getElementById('login-password').value);
+      await boot();
+    } catch (err) {
+      document.getElementById('login-error').textContent = err.message;
+    }
+  });
+  document.getElementById('logout-btn').addEventListener('click', async () => { await signOut(); location.reload(); });
+
+  async function boot() {
+    const profile = await getCurrentProfile();
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'moderator')) {
+      document.getElementById('login-error').textContent = profile ? 'This account does not have admin access.' : '';
+      return;
+    }
+    document.getElementById('locked').style.display = 'none';
+    document.getElementById('dashboard').style.display = '';
+    document.getElementById('admin-name').textContent = `${profile.display_name} (${profile.role})`;
+    const isAdmin = profile.role === 'admin';
+
+    loadOverview();
+    loadMembers(isAdmin);
+    loadPostsAdmin();
+    loadCommentsAdmin();
+    loadDevotionalsAdmin();
+    loadLiveControl();
+    loadSettings(isAdmin);
+  }
+
+  async function loadOverview() {
+    const [{ count: members }, { count: posts }, { count: comments }] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('posts').select('*', { count: 'exact', head: true }),
+      supabase.from('comments').select('*', { count: 'exact', head: true }),
+    ]);
+    document.getElementById('overview-stats').innerHTML = `
+      <div class="row"><span class="label">Total members</span><strong>${members ?? '—'}</strong></div>
+      <div class="row"><span class="label">Total posts</span><strong>${posts ?? '—'}</strong></div>
+      <div class="row"><span class="label">Total comments</span><strong>${comments ?? '—'}</strong></div>`;
+  }
+
+  async function loadMembers(isAdmin) {
+    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    const body = document.querySelector('#members-table tbody');
+    body.innerHTML = (data || []).map(m => `
+      <tr>
+        <td>${m.display_name}</td>
+        <td><span class="badge ${m.role}">${m.role}</span></td>
+        <td>${m.banned ? '🚫 Banned' : '✅ Active'}</td>
+        <td>
+          ${isAdmin ? `
+            <select data-role="${m.id}">
+              <option value="member" ${m.role==='member'?'selected':''}>Member</option>
+              <option value="moderator" ${m.role==='moderator'?'selected':''}>Moderator</option>
+              <option value="admin" ${m.role==='admin'?'selected':''}>Admin</option>
+            </select>
+            <button class="btn btn-danger" data-ban="${m.id}" data-current="${m.banned}">${m.banned ? 'Unban' : 'Ban'}</button>
+          ` : '—'}
+        </td>
+      </tr>`).join('');
+
+    body.querySelectorAll('[data-role]').forEach(sel => sel.addEventListener('change', async () => {
+      await supabase.from('profiles').update({ role: sel.value }).eq('id', sel.dataset.role);
+      loadMembers(isAdmin);
+    }));
+    body.querySelectorAll('[data-ban]').forEach(btn => btn.addEventListener('click', async () => {
+      await supabase.from('profiles').update({ banned: btn.dataset.current !== 'true' }).eq('id', btn.dataset.ban);
+      loadMembers(isAdmin);
+    }));
+  }
+
+  async function loadPostsAdmin() {
+    const { data } = await supabase.from('posts').select('*, profiles(display_name)').order('created_at', { ascending: false });
+    const body = document.querySelector('#posts-table tbody');
+    body.innerHTML = (data || []).map(p => `
+      <tr>
+        <td>${p.profiles?.display_name || '—'}</td>
+        <td style="max-width:280px;">${p.content.slice(0,120)}</td>
+        <td>${p.hidden ? 'Hidden' : (p.pinned ? 'Pinned' : 'Visible')}</td>
+        <td>
+          <button class="btn btn-ghost" data-pin="${p.id}" data-current="${p.pinned}">${p.pinned ? 'Unpin' : 'Pin'}</button>
+          <button class="btn btn-ghost" data-hide="${p.id}" data-current="${p.hidden}">${p.hidden ? 'Unhide' : 'Hide'}</button>
+          <button class="btn btn-danger" data-del="${p.id}">Delete</button>
+        </td>
+      </tr>`).join('');
+
+    body.querySelectorAll('[data-pin]').forEach(b => b.addEventListener('click', async () => {
+      await supabase.from('posts').update({ pinned: b.dataset.current !== 'true' }).eq('id', b.dataset.pin); loadPostsAdmin();
+    }));
+    body.querySelectorAll('[data-hide]').forEach(b => b.addEventListener('click', async () => {
+      await supabase.from('posts').update({ hidden: b.dataset.current !== 'true' }).eq('id', b.dataset.hide); loadPostsAdmin();
+    }));
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this post permanently?')) { await supabase.from('posts').delete().eq('id', b.dataset.del); loadPostsAdmin(); }
+    }));
+  }
+
+  async function loadCommentsAdmin() {
+    const { data } = await supabase.from('comments').select('*, profiles(display_name)').order('created_at', { ascending: false });
+    const body = document.querySelector('#comments-table tbody');
+    body.innerHTML = (data || []).map(c => `
+      <tr>
+        <td>${c.profiles?.display_name || '—'}</td>
+        <td style="max-width:280px;">${c.content.slice(0,120)}</td>
+        <td>${c.hidden ? 'Hidden' : 'Visible'}</td>
+        <td>
+          <button class="btn btn-ghost" data-hide="${c.id}" data-current="${c.hidden}">${c.hidden ? 'Unhide' : 'Hide'}</button>
+          <button class="btn btn-danger" data-del="${c.id}">Delete</button>
+        </td>
+      </tr>`).join('');
+
+    body.querySelectorAll('[data-hide]').forEach(b => b.addEventListener('click', async () => {
+      await supabase.from('comments').update({ hidden: b.dataset.current !== 'true' }).eq('id', b.dataset.hide); loadCommentsAdmin();
+    }));
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this comment permanently?')) { await supabase.from('comments').delete().eq('id', b.dataset.del); loadCommentsAdmin(); }
+    }));
+  }
+
+  async function loadDevotionalsAdmin() {
+    const { data } = await supabase.from('devotionals').select('*').order('day');
+    const body = document.querySelector('#devo-table tbody');
+    body.innerHTML = (data || []).map(d => `
+      <tr><td>${d.day}</td><td>${d.reference}</td>
+      <td><button class="btn btn-danger" data-del="${d.id}">Delete</button></td></tr>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      await supabase.from('devotionals').delete().eq('id', b.dataset.del); loadDevotionalsAdmin();
+    }));
+  }
+  document.getElementById('devo-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const day = parseInt(document.getElementById('devo-day').value, 10);
+    await supabase.from('devotionals').upsert({
+      day,
+      reference: document.getElementById('devo-ref').value,
+      verse: document.getElementById('devo-verse').value,
+      declaration: document.getElementById('devo-declaration').value,
+    }, { onConflict: 'day' });
+    e.target.reset();
+    loadDevotionalsAdmin();
+  });
+
+  async function loadLiveControl() {
+    const { data } = await supabase.from('live_status').select('*').eq('id', 1).single();
+    const toggle = document.getElementById('live-toggle');
+    toggle.classList.toggle('on', !!data?.is_live);
+    document.getElementById('live-title').value = data?.title || '';
+    document.getElementById('live-url').value = data?.url || '';
+    document.getElementById('live-platform').value = data?.platform || 'youtube';
+    toggle.onclick = () => toggle.classList.toggle('on');
+  }
+  document.getElementById('live-save').addEventListener('click', async () => {
+    await supabase.from('live_status').update({
+      is_live: document.getElementById('live-toggle').classList.contains('on'),
+      title: document.getElementById('live-title').value,
+      url: document.getElementById('live-url').value,
+      platform: document.getElementById('live-platform').value,
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1);
+    alert('Live status updated.');
+  });
+
+  async function loadSettings(isAdmin) {
+    const { data } = await supabase.from('site_settings').select('*');
+    const map = Object.fromEntries((data || []).map(s => [s.key, s.value]));
+    ['allow_posts','allow_comments','maintenance_mode','announcement_enabled'].forEach(key => {
+      const el = document.getElementById('toggle-' + key);
+      el.classList.toggle('on', map[key] === true);
+      el.onclick = async () => {
+        if (!isAdmin) { alert('Only admins can change site settings.'); return; }
+        const newVal = !el.classList.contains('on');
+        el.classList.toggle('on');
+        await supabase.from('site_settings').update({ value: newVal }).eq('key', key);
+      };
+    });
+    document.getElementById('announcement-text').value = (map.announcement_text || '').replace(/^"|"$/g,'');
+  }
+  document.getElementById('save-announcement').addEventListener('click', async () => {
+    await supabase.from('site_settings').update({ value: document.getElementById('announcement-text').value }).eq('key', 'announcement_text');
+    alert('Announcement saved.');
+  });
+
+  boot();
+</script>
+</body>
+</html>
