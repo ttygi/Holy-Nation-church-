@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Community — Prophetic Bright</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0B0714; --bg-raised:#15101F; --card-border:rgba(255,255,255,0.10);
+    --text-hi:#F4F0FA; --text-mid:#B9AFC9; --text-low:#8A7F9C;
+    --gold:#E8B04B; --ember-1:#F2A93B; --ember-2:#E0602E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text-hi); font-family:'Inter',sans-serif;}
+  h1,h2{font-family:'Fraunces',serif; font-weight:600;}
+  .wrap{max-width:640px; margin:0 auto; padding:24px 20px 60px;}
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  a.back{color:var(--text-mid); text-decoration:none; font-size:0.9rem;}
+  .card{background:var(--bg-raised); border:1px solid var(--card-border); border-radius:16px; padding:20px; margin-bottom:14px;}
+  input, textarea{width:100%; background:var(--bg); border:1px solid var(--card-border); color:var(--text-hi); border-radius:10px; padding:11px 13px; font-family:inherit; font-size:0.9rem; margin-bottom:10px;}
+  .btn{border:none; border-radius:999px; padding:11px 18px; font-size:0.88rem; font-weight:600; cursor:pointer; font-family:inherit;}
+  .btn-primary{background:linear-gradient(135deg, var(--ember-1), var(--ember-2)); color:#1A0F00;}
+  .btn-ghost{background:transparent; border:1px solid var(--card-border); color:var(--text-mid);}
+  .post-meta{color:var(--text-low); font-size:0.82rem; margin:0 0 8px;}
+  .post-content{margin:0 0 14px; line-height:1.6;}
+  .pinned-tag{color:var(--gold); font-size:0.78rem; font-weight:600; margin:0 0 6px;}
+  .tabbar{display:flex; gap:8px; margin-bottom:6px;}
+  .tabbar button{flex:1; background:var(--bg-raised); border:1px solid var(--card-border); color:var(--text-mid); padding:9px; border-radius:10px; cursor:pointer; font-family:inherit;}
+  .tabbar button.active{color:var(--text-hi); border-color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="index.html" class="back">← Back to site</a>
+    <span data-auth="in" style="display:none; color:var(--text-mid); font-size:0.85rem;">Hi, <span data-auth="name"></span> · <a href="#" id="logout-link">Sign out</a></span>
+  </header>
+
+  <h1>Community</h1>
+
+  <!-- Logged-out: auth form -->
+  <div data-auth="out" class="card">
+    <div class="tabbar">
+      <button class="active" data-authtab="signin">Sign In</button>
+      <button data-authtab="signup">Create Account</button>
+    </div>
+    <form id="signin-form" class="stack">
+      <input id="si-email" type="email" placeholder="Email" required />
+      <input id="si-password" type="password" placeholder="Password" required />
+      <button class="btn btn-primary" type="submit">Sign In</button>
+    </form>
+    <form id="signup-form" class="stack" style="display:none;">
+      <input id="su-name" placeholder="Display name" required />
+      <input id="su-email" type="email" placeholder="Email" required />
+      <input id="su-password" type="password" placeholder="Password (min 6 characters)" required minlength="6" />
+      <button class="btn btn-primary" type="submit">Create Account</button>
+    </form>
+    <p id="auth-error" style="color:#E5484D; font-size:0.85rem; margin-top:8px;"></p>
+  </div>
+
+  <!-- Logged-in: post box -->
+  <div data-auth="in" class="card" style="display:none;">
+    <textarea id="new-post" placeholder="Share something with the community…" rows="3"></textarea>
+    <button class="btn btn-primary" id="post-btn">Post</button>
+  </div>
+
+  <div id="feed"></div>
+</div>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/community.js"></script>
+<script>
+  document.querySelectorAll('[data-authtab]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-authtab]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('signin-form').style.display = btn.dataset.authtab === 'signin' ? '' : 'none';
+    document.getElementById('signup-form').style.display = btn.dataset.authtab === 'signup' ? '' : 'none';
+  }));
+
+  document.getElementById('signin-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await signIn(document.getElementById('si-email').value, document.getElementById('si-password').value);
+      await refreshAuthUI();
+      initFeed('feed');
+    } catch (err) { document.getElementById('auth-error').textContent = err.message; }
+  });
+
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await signUp(document.getElementById('su-email').value, document.getElementById('su-password').value, document.getElementById('su-name').value);
+      document.getElementById('auth-error').style.color = 'var(--gold)';
+      document.getElementById('auth-error').textContent = 'Account created — check your email to confirm, then sign in.';
+    } catch (err) { document.getElementById('auth-error').style.color = '#E5484D'; document.getElementById('auth-error').textContent = err.message; }
+  });
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault(); await signOut(); location.reload();
+  });
+
+  document.getElementById('post-btn').addEventListener('click', async () => {
+    const el = document.getElementById('new-post');
+    if (!el.value.trim()) return;
+    try { await createPost(el.value.trim()); el.value = ''; initFeed('feed'); }
+    catch (err) { alert(err.message); }
+  });
+
+  (async () => { await refreshAuthUI(); initFeed('feed'); })();
+</script>
+</body>
+</html>
